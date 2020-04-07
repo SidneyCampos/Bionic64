@@ -1,38 +1,45 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
+
+# DECLARAÇÃO DE FUNÇÃO
 $script_mysql = <<-SCRIPT
   apt-get update && \
   apt-get install -y mysql-server-5.7 && \
   mysql -e "create user 'phpuser'@'%' identified by 'pass';"
 SCRIPT
 
-
+# CONFIGURAÇÃO DE VERSÃO DA MÁQUINA VIRTUAL
 Vagrant.configure("2") do |config|
 	config.vm.box = "hashicorp/bionic64"
   config.vm.box_version = "1.0.282"
-	
-  config.vm.network "forwarded_port", guest: 80, host: 8089
-	config.vm.network "public_network", ip: "192.168.0.200"
-	
-  config.vm.provision "shell",
-  inline: "cat /configs/id_bionic64.pub >> .ssh/authorized_keys"
 
-  config.vm.provision "shell", inline: $script_mysql
-
-  config.vm.provision "shell", inline: "cat /configs/mysqld.cnf > /etc/mysql/mysql.conf.d/mysqld.cnf"
-
-  config.vm.provision "shell", inline: "service mysql restart"
-
-  config.vm.provision "shell", 
-  inline: "apt-get install -y nginx"
-
-  config.vm.synced_folder "./configs", "/configs"
-  config.vm.synced_folder ".", "/vagrant", disabled:true
-
-	config.vm.provider "virtualbox" do |vb|
-		vb.memory = "4096"
-	end
-end
+  config.vm.define "mysqldb" do |mysql|
+    # CONFIGURAÇÃO DA REDE
+    mysql.vm.network "public_network", ip: "192.168.0.199"
+    # PROVISIONAMENTOS
+    mysql.vm.provision "shell",
+    inline: "cat /configs/id_bionic64.pub >> .ssh/authorized_keys"
+    mysql.vm.provision "shell", 
+    inline: $script_mysql
+    mysql.vm.provision "shell", 
+    inline: "cat /configs/mysqld.cnf > /etc/mysql/mysql.conf.d/mysqld.cnf"
+    mysql.vm.provision "shell", 
+    inline: "service mysql restart"
+    mysql.vm.provision "shell", 
+    inline: "apt-get install -y nginx"
+    # CONFIGURAÇÃO DE PASTA SINCRONIZADA
+    mysql.vm.synced_folder "./configs", "/configs"
+    mysql.vm.synced_folder ".", "/vagrant", disabled:true
+    # CONFIGURAÇÃO DE RECURSOS DA MÁQUINA VIRTUAL
+    mysql.vm.provider "virtualbox" do |vb|
+      vb.memory = "4096"
+    end #virtualbox
+  end #mysqldb
+  config.vm.define "phpweb" do |phpweb|
+    phpweb.vm.network "forwarded_port", guest: 80, host: 8090
+    phpweb.vm.network "public_network", ip: "192.168.0.200"
+  end #phpweb
+end #Vagrant
   # ---------------- Others commands
 
 # Disable automatic box update checking. If you disable this, then
